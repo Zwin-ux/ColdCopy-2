@@ -116,6 +116,13 @@ interface StageLogEntry {
   timestamp: string;
 }
 
+interface ScoutSuggestion {
+  name: string;
+  role: string;
+  detail: string;
+  source?: string;
+}
+
 interface ComposePanelProps {
   offer: string;
   targetText: string;
@@ -172,7 +179,7 @@ const ComposePanel = ({
     </button>
     {error && <p className="error">{error}</p>}
   </section>
-};
+);
 
 interface BatchQueueProps {
   batchRows: BatchRow[];
@@ -514,7 +521,9 @@ const App = () => {
   const [exportingBatch, setExportingBatch] = useState(false);
   const [savedBatchRows, setSavedBatchRows] = useState<BatchRow[] | null>(null);
   const [scoutQuery, setScoutQuery] = useState("");
-  const [scoutResults, setScoutResults] = useState<{ name: string; role: string; detail: string }[] | null>(null);
+  const [scoutResults, setScoutResults] = useState<ScoutSuggestion[] | null>(null);
+  const [scoutLoading, setScoutLoading] = useState(false);
+  const [scoutError, setScoutError] = useState<string | null>(null);
 
   const callGenerate = async (body: GenerationRequest) => {
     const resp = await fetch(`${baseUrl}/api/generate`, {
@@ -686,28 +695,37 @@ const App = () => {
     );
   };
 
-  const handleScoutSearch = () => {
+  const handleScoutSearch = async () => {
     if (!scoutQuery.trim()) {
       setScoutResults(null);
       return;
     }
-    setScoutResults([
-      {
-        name: "Rhea Carter",
-        role: "Head of Revenue Ops",
-        detail: `Built the ${scoutQuery} deliverability playbook — ${scoutQuery}@example.com`,
-      },
-      {
-        name: "Milo Shah",
-        role: "Enablement Manager",
-        detail: `Tracks ${scoutQuery} funnel metrics. 555-0102`,
-      },
-      {
-        name: "Imani Ortiz",
-        role: "Compliance Lead",
-        detail: `Championing ${scoutQuery} SOC2 readiness; HQ address 425 Market St.`,
-      },
-    ]);
+    setScoutLoading(true);
+    setScoutError(null);
+    try {
+      const resp = await fetch(`${baseUrl}/api/serp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: scoutQuery.trim(),
+          company: scoutQuery.trim(),
+          context: scoutQuery.trim(),
+        }),
+      });
+      const payload = await resp.json();
+      if (!resp.ok) {
+        throw new Error(payload.error?.message ?? "SERP lookup failed");
+      }
+      setScoutResults(payload.suggestions ?? []);
+      if (payload.fallback) {
+        setScoutError("Using fallback suggestions; the SERP provider could not be reached.");
+      }
+    } catch (err) {
+      setScoutResults(null);
+      setScoutError(err instanceof Error ? err.message : "Unable to fetch scout suggestions.");
+    } finally {
+      setScoutLoading(false);
+    }
   };
 
   const handleExportCsv = async () => {
@@ -874,22 +892,29 @@ const App = () => {
                   placeholder="e.g., compliance automation for fintech"
                 />
               </label>
-              <button type="button" className="scout-button" onClick={handleScoutSearch} disabled={!scoutQuery.trim()}>
-                Generate scout suggestions
+              <button
+                type="button"
+                className="scout-button"
+                onClick={handleScoutSearch}
+                disabled={!scoutQuery.trim() || scoutLoading}
+              >
+                {scoutLoading ? "Searching…" : "Generate scout suggestions"}
               </button>
-              {scoutResults ? (
+              {scoutError && <p className="error">{scoutError}</p>}
+              {scoutResults && scoutResults.length ? (
                 <ul className="scout-results">
                   {scoutResults.map((result) => (
-                    <li key={result.name}>
+                    <li key={`${result.name}-${result.role}`}>
                       <strong>{result.name}</strong>
                       <p>{result.role}</p>
                       <p>{result.detail}</p>
+                      {result.source && <small className="helper-text">Source: {result.source}</small>}
                     </li>
                   ))}
                 </ul>
-              ) : (
+              ) : !scoutLoading ? (
                 <p className="helper-text">Use the prompt to surface suggested people to scout.</p>
-              )}
+              ) : null}
             </section>
           </div>
 

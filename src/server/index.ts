@@ -83,6 +83,12 @@ const crmSchema = z.object({
   entries: z.array(crmEntrySchema).min(1),
 });
 
+const serpSchema = z.object({
+  query: z.string().min(3),
+  company: z.string().min(2),
+  context: z.string().min(5),
+});
+
 const batchSchema = z.object({
   entries: z
     .array(
@@ -105,6 +111,64 @@ type GenerationInput = {
   cachedSignals?: TargetSignals;
   cachedAngles?: OutreachAngles;
 };
+
+const fallbackScoutSuggestions = [
+  {
+    name: "Callie Mercer",
+    role: "Revenue Operations Lead",
+    detail: "Leads compliance automation reviews for SaaS teams — (415) 555-0192",
+  },
+  {
+    name: "Luis Ortega",
+    role: "Compliance Program Manager",
+    detail: "Runs deliverability health checks and policy documentation.",
+  },
+  {
+    name: "Zoe Patel",
+    role: "Head of GTM Enablement",
+    detail: "Coordinates multi-channel playbooks and reports to the CRO.",
+  },
+];
+
+const createSerpResponse = (suggestions: typeof fallbackScoutSuggestions, fallback = false) => ({
+  suggestions,
+  timestamp: new Date().toISOString(),
+  fallback,
+});
+
+app.post("/api/serp", async (req, res) => {
+  try {
+    const payload = serpSchema.parse(req.body);
+    if (!config.SERP_API_URL) {
+      return res.json(createSerpResponse(fallbackScoutSuggestions, true));
+    }
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (config.SERP_API_KEY) {
+      headers["x-api-key"] = config.SERP_API_KEY;
+    }
+    const response = await fetch(config.SERP_API_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      throw new Error(`SERP provider responded with ${response.status}`);
+    }
+    const data = (await response.json()) as {
+      suggestions?: { name: string; role: string; detail: string; source?: string }[];
+      source?: string;
+    };
+    const suggestions = Array.isArray(data.suggestions) && data.suggestions.length
+      ? data.suggestions
+      : fallbackScoutSuggestions;
+    res.json({ suggestions, timestamp: new Date().toISOString(), source: data.source ?? "serp", fallback: false });
+  } catch (error) {
+    console.error("/api/serp error", error);
+    res.json(createSerpResponse(fallbackScoutSuggestions, true));
+  }
+});
 
 const runPipeline = async (input: GenerationInput) => {
   const { offer, tone, selectedAngle, cachedProfile, cachedSignals, cachedAngles, targetText } =

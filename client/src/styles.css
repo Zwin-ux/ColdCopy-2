@@ -388,6 +388,13 @@ body {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+.scout-results small {
+  display: block;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 4px;
+  font-size: 0.75rem;
+}
 .stage-log-panel {
   margin-top: 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
