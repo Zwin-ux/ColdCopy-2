@@ -1,0 +1,12 @@
+[build]
+  command = "npm install && npm run build"
+
+[deploy]
+  startCommand = "npm start"
+
+[env]
+  OPENAI_API_KEY = ""
+  OPENAI_MODEL = "gpt-5.1-mini"
+  PORT = "4000"
+  SERP_API_URL = ""
+  SERP_API_KEY = ""
