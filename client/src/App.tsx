@@ -224,12 +224,12 @@ const BatchQueue = ({
 
   return (
     <section className="panel batch-panel glass-panel">
-    <div className="panel-header">
-      <h2>Batch queue</h2>
-      <button type="button" className="batch-add-row" onClick={handleAddRow}>
-        + Add target
-      </button>
-    </div>
+      <div className="panel-header">
+        <h2>Batch queue</h2>
+        <button type="button" className="batch-add-row" onClick={handleAddRow}>
+          + Add target
+        </button>
+      </div>
 
       <div className="batch-rows">
         {batchRows.map((row) => {
@@ -239,154 +239,169 @@ const BatchQueue = ({
               className={`batch-row glass-panel${validity.isValid ? "" : " batch-row-invalid"}`}
               key={row.id}
             >
-          <div className="batch-row-header">
-            <span className={`batch-status-badge ${row.status}`}>{rowStatusLabel[row.status]}</span>
-            <div className="batch-row-header-actions">
-              <button type="button" disabled={batchRows.length === 1} onClick={() => handleRemoveRow(row.id)}>
-                Remove
-              </button>
-            </div>
-          </div>
-
-          <label>
-            <span>Offer</span>
-              <textarea
-                rows={2}
-                value={row.offer}
-                onChange={(event) => updateBatchRow(row.id, (prev) => ({ ...prev, offer: event.target.value }))}
-              />
-              {!validity.offerValid && (
-                <small className="helper-text">Offer must be at least 5 characters.</small>
-              )}
-            </label>
-
-            <label>
-              <span>Target info</span>
-              <textarea
-                rows={3}
-                value={row.targetText}
-                onChange={(event) =>
-                  updateBatchRow(row.id, (prev) => ({ ...prev, targetText: event.target.value }))
-                }
-              />
-              {!validity.targetValid && (
-                <small className="helper-text">Target info must be at least 5 characters.</small>
-              )}
-            </label>
-
-          <div className="batch-row-controls">
-            <label>
-              <span>Tone</span>
-              <select
-                value={row.tone}
-                onChange={(event) =>
-                  updateBatchRow(row.id, (prev) => ({ ...prev, tone: event.target.value as Tone }))
-                }
-              >
-                <option value="friendly">Friendly</option>
-                <option value="professional">Professional</option>
-                <option value="aggressive">Aggressive</option>
-                <option value="minimalist">Minimalist</option>
-              </select>
-            </label>
-            <label>
-              <span>Preferred angle</span>
-              <select
-                value={row.preferredAngle ?? ""}
-                onChange={(event) =>
-                  updateBatchRow(row.id, (prev) => ({
-                    ...prev,
-                    preferredAngle: (event.target.value as AngleKey) || undefined,
-                  }))
-                }
-              >
-                <option value="">Auto</option>
-                {angleOrder.map((angle) => (
-                  <option key={angle} value={angle}>
-                    {formatAngleLabel(angle)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {row.error && <p className="error batch-row-error">{row.error}</p>}
-          <button
-            type="button"
-            className="batch-preview-toggle"
-            onClick={() => handleTogglePreview(row.id)}
-            disabled={!row.research}
-          >
-            {row.previewOpen ? "Hide cached research" : "Preview cached research"}
-          </button>
-
-          {row.previewOpen && (
-            <div className="preview-card">
-              {row.research ? (
-                <>
-                  <p>
-                    <strong>Industry:</strong> {row.research.profile.industry ?? "Unknown"}
-                  </p>
-                  <p>
-                    <strong>Role:</strong> {row.research.profile.role ?? "Unknown"}
-                  </p>
-                  <p>
-                    <strong>Angle:</strong>{" "}
-                    {row.email?.meta.selected_angle
-                      ? row.email.meta.selected_angle.replace("_", " ")
-                      : "Not set"}
-                  </p>
-                  <p className="helper-text">{row.research.deliverability.cues}</p>
-                </>
-              ) : (
-                <p className="helper-text">Generate this row once to cache research.</p>
-              )}
-            </div>
-          )}
-
-          {row.status === "success" && row.research && row.email && (
-            <div className="batch-row-result">
-              <div className="card deliverability-card batch-deliverability-card">
-                <div className="card-header">
-                  <h3>Deliverability</h3>
-                  <span className={`risk-badge risk-${row.research.deliverability.riskLevel}`}>
-                    {getRiskLabel(row.research.deliverability.riskLevel)}
-                  </span>
+              <div className="batch-row-header">
+                <span className={`batch-status-badge ${row.status}`}>{rowStatusLabel[row.status]}</span>
+                <div className="batch-row-header-actions">
+                  <button type="button" disabled={batchRows.length === 1} onClick={() => handleRemoveRow(row.id)}>
+                    Remove
+                  </button>
                 </div>
-                <p className="deliverability-cues">{row.research.deliverability.cues}</p>
-                <p className="deliverability-recommends">{row.research.deliverability.recommends}</p>
               </div>
-              <pre>{row.email.body}</pre>
-              <div className="batch-row-footer">
-                <button type="button" onClick={() => handleRegenerateRow(row)} disabled={batchProcessing}>
-                  Regenerate with another angle
-                </button>
-                <span>
-                  Angle {angleOrder.indexOf(row.email.meta.selected_angle) + 1} of {angleOrder.length}
-                </span>
+
+              <label>
+                <span>Offer</span>
+                <textarea
+                  rows={2}
+                  value={row.offer}
+                  onChange={(event) => updateBatchRow(row.id, (prev) => ({ ...prev, offer: event.target.value }))}
+                />
+                {!validity.offerValid && (
+                  <small className="helper-text">Offer must be at least 5 characters.</small>
+                )}
+              </label>
+
+              <label>
+                <span>Target info</span>
+                <textarea
+                  rows={3}
+                  value={row.targetText}
+                  onChange={(event) =>
+                    updateBatchRow(row.id, (prev) => ({ ...prev, targetText: event.target.value }))
+                  }
+                />
+                {!validity.targetValid && (
+                  <small className="helper-text">Target info must be at least 5 characters.</small>
+                )}
+              </label>
+
+              <div className="batch-row-controls">
+                <label>
+                  <span>Tone</span>
+                  <select
+                    value={row.tone}
+                    onChange={(event) =>
+                      updateBatchRow(row.id, (prev) => ({ ...prev, tone: event.target.value as Tone }))
+                    }
+                  >
+                    <option value="friendly">Friendly</option>
+                    <option value="professional">Professional</option>
+                    <option value="aggressive">Aggressive</option>
+                    <option value="minimalist">Minimalist</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Preferred angle</span>
+                  <select
+                    value={row.preferredAngle ?? ""}
+                    onChange={(event) =>
+                      updateBatchRow(row.id, (prev) => ({
+                        ...prev,
+                        preferredAngle: (event.target.value as AngleKey) || undefined,
+                      }))
+                    }
+                  >
+                    <option value="">Auto</option>
+                    {angleOrder.map((angle) => (
+                      <option key={angle} value={angle}>
+                        {formatAngleLabel(angle)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
+
+              {row.error && <p className="error batch-row-error">{row.error}</p>}
+              <button
+                type="button"
+                className="batch-preview-toggle"
+                onClick={() => handleTogglePreview(row.id)}
+                disabled={!row.research}
+              >
+                {row.previewOpen ? "Hide cached research" : "Preview cached research"}
+              </button>
+
+              {row.previewOpen && (
+                <div className="preview-card">
+                  {row.research ? (
+                    <>
+                      <p>
+                        <strong>Industry:</strong> {row.research.profile.industry ?? "Unknown"}
+                      </p>
+                      <p>
+                        <strong>Role:</strong> {row.research.profile.role ?? "Unknown"}
+                      </p>
+                      <p>
+                        <strong>Angle:</strong> {" "}
+                        {row.email?.meta.selected_angle
+                          ? row.email.meta.selected_angle.replace("_", " " )
+                          : "Not set"}
+                      </p>
+                      <p className="helper-text">{row.research.deliverability.cues}</p>
+                    </>
+                  ) : (
+                    <p className="helper-text">Generate this row once to cache research.</p>
+                  )}
+                </div>
+              )}
+
+              {row.status === "success" && row.research && row.email && (
+                <div className="batch-row-result">
+                  <div className="card deliverability-card batch-deliverability-card">
+                    <div className="card-header">
+                      <h3>Deliverability</h3>
+                      <span className={`risk-badge risk-${row.research.deliverability.riskLevel}`}>
+                        {getRiskLabel(row.research.deliverability.riskLevel)}
+                      </span>
+                    </div>
+                    <p className="deliverability-cues">{row.research.deliverability.cues}</p>
+                    <p className="deliverability-recommends">{row.research.deliverability.recommends}</p>
+                  </div>
+                  <pre>{row.email.body}</pre>
+                  <div className="batch-row-footer">
+                    <button type="button" onClick={() => handleRegenerateRow(row)} disabled={batchProcessing}>
+                      Regenerate with another angle
+                    </button>
+                    <span>
+                      Angle {angleOrder.indexOf(row.email.meta.selected_angle) + 1} of {angleOrder.length}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      ))}
-    </div>
+          );
+        })}
+      </div>
 
-    <div className="batch-footer">
-      <button className="generate" type="button" onClick={handleBatchGenerate} disabled={!readyToGenerateBatch || batchProcessing}>
-        {batchProcessing ? "Generating batchâ€¦" : "Generate batch"}
-      </button>
-      <button className="batch-export" type="button" onClick={handleExportCsv} disabled={!hasBatchSuccess || exportingBatch}>
-        {exportingBatch ? "Exporting CSVâ€¦" : "Export CRM CSV"}
-      </button>
-      <button className="batch-rerun" type="button" onClick={handleReRunLastBatch} disabled={!savedBatchRowsAvailable || batchProcessing}>
-        Re-run last batch
-      </button>
-      {batchMessage && <p className="batch-message">{batchMessage}</p>}
-    </div>
-  </section>
-};
-
-interface ResearchPanelProps {
+      <div className="batch-footer">
+        <button
+          className="generate"
+          type="button"
+          onClick={handleBatchGenerate}
+          disabled={!readyToGenerateBatch || batchProcessing}
+        >
+          {batchProcessing ? "Generating batch…" : "Generate batch"}
+        </button>
+        <button
+          className="batch-export"
+          type="button"
+          onClick={handleExportCsv}
+          disabled={!hasBatchSuccess || exportingBatch}
+        >
+          {exportingBatch ? "Exporting CSV…" : "Export CRM CSV"}
+        </button>
+        <button
+          className="batch-rerun"
+          type="button"
+          onClick={handleReRunLastBatch}
+          disabled={!savedBatchRowsAvailable || batchProcessing}
+        >
+          Re-run last batch
+        </button>
+        {batchMessage && <p className="batch-message">{batchMessage}</p>}
+      </div>
+    </section>
+  );
+};interface ResearchPanelProps {
   research: ResearchSnapshot | null;
   researchSummary: string;
   currentAngleLabel: string;
