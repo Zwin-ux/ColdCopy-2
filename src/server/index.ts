@@ -1,6 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import path from "path";
 import { z } from "zod";
 import { ColdCopyPipeline, Tone, AngleKey } from "../pipeline";
 import { loadConfig } from "../config";
@@ -16,8 +17,10 @@ dotenv.config();
 
 const config = loadConfig();
 const app = express();
+const clientDist = path.join(__dirname, "../..", "client", "dist");
 app.use(express.json());
 app.use(cors());
+app.use(express.static(clientDist));
 
 const toneEnum = z.enum(["friendly", "professional", "aggressive", "minimalist"]);
 const angleEnum = z.enum(["value_angle", "curiosity_angle", "social_angle"]);
@@ -321,8 +324,11 @@ app.post("/api/crm", (req, res) => {
   }
 });
 
-app.get("/", (_, res) => {
-  res.send({ status: "ColdCopy backend ready" });
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api")) {
+    return next();
+  }
+  res.sendFile(path.join(clientDist, "index.html"));
 });
 
 if (require.main === module) {

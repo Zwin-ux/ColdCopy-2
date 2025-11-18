@@ -13,7 +13,19 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((value) => Number(value ?? "4000")),
-  SERP_API_URL: z.string().url().optional(),
+  SERP_API_URL: z
+    .string()
+    .optional()
+    .transform((value) => {
+      if (!value || value.trim() === "") {
+        return undefined;
+      }
+      try {
+        return new URL(value).toString();
+      } catch {
+        return value;
+      }
+    }),
   SERP_API_KEY: z.string().optional(),
 });
 
