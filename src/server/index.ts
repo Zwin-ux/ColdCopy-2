@@ -35,14 +35,17 @@ app.get("/health", (req, res) => {
 });
 
 const toneEnum = z.enum(["friendly", "professional", "aggressive", "minimalist"]);
-industry: z.string().nullable(),
+const angleEnum = z.enum(["value_angle", "curiosity_angle", "social_angle"]);
+
+const profileSchema = z.object({
+  industry: z.string().nullable(),
   role: z.string().nullable(),
-    company: z.string().nullable(),
-      recent_achievements: z.string().nullable(),
-        notable_products_or_services: z.string().nullable(),
-          public_pain_points: z.string().nullable(),
-            writing_tone: z.string().nullable(),
-              values_or_preferences: z.string().nullable(),
+  company: z.string().nullable(),
+  recent_achievements: z.string().nullable(),
+  notable_products_or_services: z.string().nullable(),
+  public_pain_points: z.string().nullable(),
+  writing_tone: z.string().nullable(),
+  values_or_preferences: z.string().nullable(),
 });
 
 const signalsSchema = z.object({
@@ -182,8 +185,8 @@ const normalizeSuggestion = (raw: any): SearchSuggestion => ({
         ? raw.summary
         : "",
   source: typeof raw.source === "string" ? raw.source : undefined,
-  metrics: Array.isArray(raw.metrics) ? raw.metrics.filter((entry) => typeof entry === "string") : undefined,
-  angles: Array.isArray(raw.angles) ? raw.angles.filter((entry) => typeof entry === "string") : undefined,
+  metrics: Array.isArray(raw.metrics) ? raw.metrics.filter((entry: any) => typeof entry === "string") : undefined,
+  angles: Array.isArray(raw.angles) ? raw.angles.filter((entry: any) => typeof entry === "string") : undefined,
   context: typeof raw.context === "string" ? raw.context : undefined,
 });
 
