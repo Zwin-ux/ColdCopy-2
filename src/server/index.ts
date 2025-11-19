@@ -2,6 +2,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import path from "path";
+import helmet from "helmet";
+import compression from "compression";
 import { z } from "zod";
 import { ColdCopyPipeline, Tone, AngleKey } from "../pipeline";
 import { loadConfig } from "../config";
@@ -11,6 +13,7 @@ import {
   OutreachAngles,
   DeliverabilityNote,
   StageLogEntry,
+  SearchSuggestion,
 } from "../types";
 
 dotenv.config();
@@ -18,22 +21,28 @@ dotenv.config();
 const config = loadConfig();
 const app = express();
 const clientDist = path.join(__dirname, "../..", "client", "dist");
+
+app.use(helmet({
+  contentSecurityPolicy: false, // Disabled for simplicity with inline styles/scripts if any, can be tightened later
+}));
+app.use(compression());
 app.use(express.json());
 app.use(cors());
 app.use(express.static(clientDist));
 
-const toneEnum = z.enum(["friendly", "professional", "aggressive", "minimalist"]);
-const angleEnum = z.enum(["value_angle", "curiosity_angle", "social_angle"]);
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
-const profileSchema = z.object({
-  industry: z.string().nullable(),
+const toneEnum = z.enum(["friendly", "professional", "aggressive", "minimalist"]);
+industry: z.string().nullable(),
   role: z.string().nullable(),
-  company: z.string().nullable(),
-  recent_achievements: z.string().nullable(),
-  notable_products_or_services: z.string().nullable(),
-  public_pain_points: z.string().nullable(),
-  writing_tone: z.string().nullable(),
-  values_or_preferences: z.string().nullable(),
+    company: z.string().nullable(),
+      recent_achievements: z.string().nullable(),
+        notable_products_or_services: z.string().nullable(),
+          public_pain_points: z.string().nullable(),
+            writing_tone: z.string().nullable(),
+              values_or_preferences: z.string().nullable(),
 });
 
 const signalsSchema = z.object({
@@ -86,12 +95,6 @@ const crmSchema = z.object({
   entries: z.array(crmEntrySchema).min(1),
 });
 
-const serpSchema = z.object({
-  query: z.string().min(3),
-  company: z.string().min(2),
-  context: z.string().min(5),
-});
-
 const batchSchema = z.object({
   entries: z
     .array(
@@ -105,6 +108,13 @@ const batchSchema = z.object({
     .min(1),
 });
 
+const serpSchema = z.object({
+  query: z.string().min(3),
+  company: z.string().min(2),
+  context: z.string().min(5),
+  keywords: z.array(z.string()).optional(),
+});
+
 type GenerationInput = {
   offer: string;
   tone: Tone;
@@ -114,6 +124,68 @@ type GenerationInput = {
   cachedSignals?: TargetSignals;
   cachedAngles?: OutreachAngles;
 };
+
+const fallbackSuggestions: SearchSuggestion[] = [
+  {
+    type: "person",
+    name: "Anika Li",
+    role: "Revenue Operations Lead",
+    detail: "Designs compliance-ready deliverability programs for fintech founders.",
+    angles: ["value: reduce reporting time", "curiosity: board-ready inbox stats"],
+  },
+  {
+    type: "concept",
+    detail: "Many compliance teams cite Gmail filtering as their biggest blocker for scaling demos.",
+    metrics: ["78% of Revenue Ops execs cite deliverability as a blocker"],
+    angles: ["social: peers finally automate compliance proofs"],
+  },
+  {
+    type: "metric",
+    detail: "Boards demand a 2x reduction in inbox work to justify pipeline spend.",
+    context: "Use this to highlight ROI/efficiency angles.",
+  },
+];
+
+let lastSerpResponse:
+  | {
+    suggestions: SearchSuggestion[];
+    timestamp: string;
+    source?: string;
+    fallback: boolean;
+    query?: string;
+  }
+  | null = null;
+
+const buildSerpResponse = (suggestions: SearchSuggestion[], opts: { fallback?: boolean; source?: string; query?: string }) => {
+  const payload = {
+    suggestions,
+    timestamp: new Date().toISOString(),
+    fallback: !!opts.fallback,
+    source: opts.source,
+    query: opts.query,
+  };
+  lastSerpResponse = payload;
+  return payload;
+};
+
+const normalizeSuggestion = (raw: any): SearchSuggestion => ({
+  type:
+    raw.type && ["person", "concept", "metric"].includes(raw.type)
+      ? (raw.type as SearchSuggestion["type"])
+      : "concept",
+  name: typeof raw.name === "string" ? raw.name : undefined,
+  role: typeof raw.role === "string" ? raw.role : undefined,
+  detail:
+    typeof raw.detail === "string"
+      ? raw.detail
+      : typeof raw.summary === "string"
+        ? raw.summary
+        : "",
+  source: typeof raw.source === "string" ? raw.source : undefined,
+  metrics: Array.isArray(raw.metrics) ? raw.metrics.filter((entry) => typeof entry === "string") : undefined,
+  angles: Array.isArray(raw.angles) ? raw.angles.filter((entry) => typeof entry === "string") : undefined,
+  context: typeof raw.context === "string" ? raw.context : undefined,
+});
 
 const fallbackScoutSuggestions = [
   {
@@ -322,6 +394,59 @@ app.post("/api/crm", (req, res) => {
           : "Something went wrong while preparing CRM export.",
     });
   }
+});
+
+app.post("/api/serp", async (req, res) => {
+  try {
+    const payload = serpSchema.parse(req.body);
+    const queryConfig = {
+      query: payload.query,
+      company: payload.company,
+      context: payload.context,
+      keywords: payload.keywords ?? [],
+    };
+
+    if (!config.SERP_API_URL) {
+      return res.json(buildSerpResponse(fallbackSuggestions, { fallback: true, query: payload.query }));
+    }
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (config.SERP_API_KEY) {
+      headers["x-api-key"] = config.SERP_API_KEY;
+    }
+
+    const response = await fetch(config.SERP_API_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(queryConfig),
+    });
+
+    if (!response.ok) {
+      throw new Error(`SERP provider responded with ${response.status}`);
+    }
+
+    const data = (await response.json()) as { suggestions?: any[]; source?: string };
+    const suggestions =
+      (Array.isArray(data.suggestions) && data.suggestions.length
+        ? data.suggestions.map(normalizeSuggestion)
+        : fallbackSuggestions) ?? fallbackSuggestions;
+
+    return res.json(
+      buildSerpResponse(suggestions, { source: data.source, query: payload.query })
+    );
+  } catch (error) {
+    console.warn("/api/serp fallback", error);
+    return res.json(buildSerpResponse(fallbackSuggestions, { fallback: true }));
+  }
+});
+
+app.get("/api/serp/latest", (_, res) => {
+  if (lastSerpResponse) {
+    return res.json(lastSerpResponse);
+  }
+  res.json(buildSerpResponse(fallbackSuggestions, { fallback: true }));
 });
 
 app.use((req, res, next) => {

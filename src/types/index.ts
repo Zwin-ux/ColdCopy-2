@@ -44,3 +44,16 @@ export interface StageLogEntry {
   output: string;
   timestamp: string;
 }
+
+export type SearchSuggestionType = "person" | "concept" | "metric";
+
+export interface SearchSuggestion {
+  type: SearchSuggestionType;
+  name?: string;
+  role?: string;
+  detail: string;
+  source?: string;
+  metrics?: string[];
+  angles?: string[];
+  context?: string;
+}

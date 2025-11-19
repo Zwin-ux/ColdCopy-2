@@ -10,3 +10,4 @@
   PORT = "4000"
   SERP_API_URL = ""
   SERP_API_KEY = ""
+  NODE_ENV = "production"
